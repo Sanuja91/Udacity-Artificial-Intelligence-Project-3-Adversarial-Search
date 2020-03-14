@@ -1,4 +1,4 @@
-
+import random
 from sample_players import DataPlayer
 
 
@@ -42,5 +42,34 @@ class CustomPlayer(DataPlayer):
         # EXAMPLE: choose a random move without any search--this function MUST
         #          call self.queue.put(ACTION) at least once before time expires
         #          (the timer is automatically managed for you)
-        import random
-        self.queue.put(random.choice(state.actions()))
+        if state.ply_count < 2:
+            self.queue.put(random.choice(state.actions()))
+        else:
+            self.queue.put(self.mcts(state, 3))
+
+	def alpha_beta_search(self, state, depth):    
+
+        def min_value(state, depth, alpha, beta):
+            if state.terminal_test(): return state.utility(self.player_id)
+            if depth <= 0 : return self.score(state)
+            value = float("inf")
+            for action in state.actions():
+                value = min(value, max_value(state.result(action), depth - 1, alpha, beta))
+                if value <= alpha: return value
+                beta = min(beta, value)
+            return value 
+
+        def max_value(state, depth, alpha, beta):
+            if state.terminal_test(): return state.utility(self.player_id)
+            if depth <= 0 : return self.score(state)
+            value = float("-inf")
+            for action in state.actions():
+                value = max(value, min_value(state.result(action), depth - 1, alpha, beta))
+                if value >= beta: return value
+                alpha = max(alpha, value)
+            return value
+        
+        return max(state.actions(), key=lambda x: min_value(state.result(x), depth - 1, float('-inf'), float('inf')))     
+
+	def mcts(self, state)
+		
