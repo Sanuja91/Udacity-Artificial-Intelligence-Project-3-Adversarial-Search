@@ -1,31 +1,114 @@
 import random
+import numpy as np
 from sample_players import DataPlayer
+from isolation import isolation
 
 class Node:
-	def __init__(self, parent, state, parent_action = None):
+	def __init__(self, state : isolation, parent = None, parent_action = None):
 		# parent_action is None for root node
 		self.visits = 0
+		self.value = None
 		self.state = state
 		self.parent_action = parent_action
 		self.unvisited_actions = state.actions()
 		self.parent = parent
 		self.children = {}
+		self.player = state.player()
 
-	def fully_expanded(self):
-		return len(self.children) == 0
+	def is_expandable(self):
+		"""Checks if leaf node"""
+		return len(self.unvisited_actions) != 0
+
+	def is_terminal(self):
+		"""Checks if terminal state"""
+		return self.state.terminal_test()
 
 	def value(self):
+		"""Gets value of node"""
 		if self.visits == 0:
 			return 0
 		return self.value / self.visits
 
 	def expand(self):
+		"""Expands existing leaf node"""
 		action = random.choice(self.unvisited_actions)
 		next_state = self.state.result(action)
 		self.unvisited_actions.remove(action)
-		child = Node(self, next_state, action)
-		self.children[action] = child
-		return child
+		node = Node(state = next_state, parent = self, parent_action = action)
+		self.children[action] = node
+		return node
+
+class MCTS:
+	"""
+	Monte Carlo Tree Search algorithm 
+	simulations = number of simulations to run
+	exploration_factor = exploration priority
+	expert_factory = expert knowledge priority
+	expansion_threshold = after visiting a leaf node x times, 
+	you expand it without using its rollout value
+	"""
+	def __init__(self, simulations, player_id, exploration_factor = 1.4, expert_factor = 2.0, expansion_threshold = 100, rolled_out_times = 10):
+		self.simulations = simulations
+		self.exploration_factor = exploration_factor
+		self.expert_factor = expert_factor
+		self.expansion_threshold = expansion_threshold
+		self.rollout_times = rollout_times
+		self.player_id = player_id
+
+	def run(self, state : isolation):
+		root = Node(state)
+		root.expand()
+
+		for _ in range(self.simulations):
+			node = root
+			search_path = [node]
+
+			while not node.is_terminal():
+				if node.visits >= self.expansion_threshold and node.is_expandable():
+					node = node.expand()
+					search_path.append(node)
+				else:
+					node = self.select_next_node(node)
+					search_path.append(node)
+
+	def select_next_node(self, node):
+		"""Picks next child node based on highest value"""
+		children = node.children
+		children_values = {}
+		for child_key in children.keys():
+			child = children[child_key]
+			# value for exploiting the child path
+			exploitation_value = child.value()
+			# value for exploring the child path
+			exploration_value = self.exploration_factor * np.log(node.visits) / child.visits
+			# value for expert knowledge
+			# expert_value = self.expert_factor * expert_knowledge / (child.visits + 1)
+			
+			# children_values[child_key] = exploitation_value + exploration_value + expert_value
+			children_values[child_key] = exploitation_value + exploration_value
+
+		selected_child_key = max(children_values, key = children_values.get)
+		return children[selected_child_key]
+
+	def rollout(self, node):
+		"""Rollouts the states randomly to find approximate value of the node"""
+		# This needs to be backpropogated
+		state = node.state
+		action_values = []
+		for action in state.actions:
+			rollout_values = []
+			while self.rollout_times > len(rollout_values):
+				while not self.state.terminal_test():
+					state = state.result(random.choice(state.actions()))
+				rollout_values.append(state.utility(self.player_id))
+				rolled_out_times += 1
+			action_values.append(sum(rollout_values) / len (rollout_values))
+		node.state
+
+	def backpropogate(self, search_path, value):
+		for node in reversed(search_path):
+			node.value += value
+			node.visits += 1
 
 
 class CustomPlayer(DataPlayer):
