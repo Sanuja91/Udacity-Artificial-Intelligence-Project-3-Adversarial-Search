@@ -1,6 +1,32 @@
 import random
 from sample_players import DataPlayer
 
+class Node:
+	def __init__(self, parent, state, parent_action = None):
+		# parent_action is None for root node
+		self.visits = 0
+		self.state = state
+		self.parent_action = parent_action
+		self.unvisited_actions = state.actions()
+		self.parent = parent
+		self.children = {}
+
+	def fully_expanded(self):
+		return len(self.children) == 0
+
+	def value(self):
+		if self.visits == 0:
+			return 0
+		return self.value / self.visits
+
+	def expand(self):
+		action = random.choice(self.unvisited_actions)
+		next_state = self.state.result(action)
+		self.unvisited_actions.remove(action)
+		child = Node(self, next_state, action)
+		self.children[action] = child
+		return child
+
 
 class CustomPlayer(DataPlayer):
     """ Implement your own agent to play knight's Isolation
